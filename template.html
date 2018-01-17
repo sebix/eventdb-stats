@@ -1,0 +1,28 @@
+<html>
+<head>
+               <script src="./plotly-latest.min.js"></script>
+</head>
+<body>
+<div id="graph" style="width:{width};height:{height};"></div>
+<script>
+{traces}
+
+var data = [{traces_list}];
+
+var layout = {
+    barmode: '{barmode}',
+    legend: {
+    x: 0,
+    y: 1.0,
+    bgcolor: 'rgba(255, 255, 255, 0)',
+    bordercolor: 'rgba(255, 255, 255, 0)'
+  },
+  title: '{title}',
+  width: {width},
+  height: {height},
+  };
+
+Plotly.newPlot('graph', data, layout);
+</script>
+</body>
+</html>
