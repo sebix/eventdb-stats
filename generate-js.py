@@ -17,12 +17,46 @@ import psycopg2.extras
 VERSION = '0.1'
 
 TRACE = """
-var {section} = {{
+var {name} = {{
   x: {x},
   y: {y},
-  name: '{section}',
+  name: '{name}',
   type: 'bar',
 }};
+"""
+GRAPH = """<div id="{name}" style="width:{width};height:{height};"></div>"""
+PLOT = """
+{traces}
+
+var data_{name} = [{traces_list}];
+
+var layout_{name} = {{
+    barmode: '{barmode}',
+    legend: {{
+    x: 0,
+    y: 1.0,
+    bgcolor: 'rgba(255, 255, 255, 0)',
+    bordercolor: 'rgba(255, 255, 255, 0)'
+  }},
+  title: '{title}',
+  width: {width},
+  height: {height},
+  }};
+
+Plotly.newPlot('{name}', data_{name}, layout_{name});
+"""
+TEMPLATE = """
+<html>
+<head>
+<script src="./plotly-latest.min.js"></script>
+</head>
+<body>
+{graphs}
+<script>
+{plots}
+</script>
+</body>
+</html>
 """
 
 
@@ -53,8 +87,12 @@ def main():
     args = parser.parse_args()
     config = configparser.ConfigParser()
     config.read(args.config)
-    traces = {}
+    graphs = []
+    plots = []
     for trace_name, section in config.items():
+        traces = {}
+        if trace_name == 'DEFAULT':
+            continue
         trace = {
             'title': section.get('title', ''),
             'width': section.get('width', ''),
@@ -63,8 +101,6 @@ def main():
             'x': [],
             'y': [],
             }
-        if trace_name == 'DEFAULT':
-            continue
         db = CONNECTIONS[trace['dsn']]
         print('Starting query for %s: %r' % (trace_name, section['query']), file=sys.stderr)
         db.execute(section['query'])
@@ -78,12 +114,19 @@ def main():
                     trace['x'].append(rowvalue)
         traces[trace_name] = trace
 
+        graphs.append(GRAPH.format(name=trace_name, width=trace['width'], height=trace['height']))
+        plots.append(PLOT.format(name=trace_name,
+                                 width=trace['width'], height=trace['height'],
+                                 title=trace['title'],
+                                 traces_list=trace_name,
+                                 traces=TRACE.format(name=trace_name, x=trace['x'], y=trace['y']),
+                                 barmode=section.get('barmode', 'group')
+                                 ))
+
     print('Rendering...', file=sys.stderr)
-    with open('template.html') as template_handle:
-        TEMPLATE = template_handle.read()
-    plot = TEMPLATE.format(width=trace['width'], height=trace['height'],
-                           traces=TRACE.format(x=trace['x'], y=trace['y'], section=trace_name),
-                           traces_list=trace_name, title=trace['title'])
+    plot = TEMPLATE.format(graphs='\n'.join(graphs),
+                           plots='\n'.join(plots),
+                           title=trace['title'])
     if not args.output:
         print(plot)
     else:

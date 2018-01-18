@@ -3,13 +3,13 @@
 <script src="./plotly-latest.min.js"></script>
 </head>
 <body>
-<div id="graph" style="width:{width};height:{height};"></div>
+{graphs}
 <script>
 {traces}
 
-var data = [{traces_list}];
+var data_{name} = [{traces_list}];
 
-var layout = {{
+var layout{name} = {{
     barmode: 'group',
     legend: {{
     x: 0,
@@ -22,7 +22,7 @@ var layout = {{
   height: {height},
   }};
 
-Plotly.newPlot('graph', data, layout);
+Plotly.newPlot('{name}', data_{name}, layout_{name});
 </script>
 </body>
 </html>
