@@ -45,7 +45,7 @@ def main():
     parser.add_argument('config', help='configuration file to use')
     parser.add_argument('-o', '--output',
                         help='output file, default: stdout',
-                        default=sys.stdout)
+                        default=None)
     parser.add_argument('--dsn',
                         help='DSN connection string',
                         default=None)
@@ -81,9 +81,14 @@ def main():
     print('Rendering...', file=sys.stderr)
     with open('template.html') as template_handle:
         TEMPLATE = template_handle.read()
-    print(TEMPLATE.format(width=trace['width'], height=trace['height'],
-                          traces=TRACE.format(x=trace['x'], y=trace['y'], section=trace_name),
-                          traces_list=trace_name, title=trace['title']))
+    plot = TEMPLATE.format(width=trace['width'], height=trace['height'],
+                           traces=TRACE.format(x=trace['x'], y=trace['y'], section=trace_name),
+                           traces_list=trace_name, title=trace['title'])
+    if not args.output:
+        print(plot)
+    else:
+        with open(args.output, 'w') as output_handle:
+            output_handle.write(plot)
 
 
 if __name__ == '__main__':
