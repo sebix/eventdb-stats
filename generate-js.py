@@ -7,6 +7,7 @@ Created on Tue Jan 16 17:45:45 2018
 """
 import argparse
 import configparser
+import datetime
 import sys
 
 import psycopg2
@@ -59,24 +60,29 @@ def main():
             'width': section.get('width', ''),
             'height': section.get('height', ''),
             'dsn': args.dsn if args.dsn else section['dsn'],
+            'x': [],
+            'y': [],
             }
         if trace_name == 'DEFAULT':
             continue
         db = CONNECTIONS[trace['dsn']]
-        print(trace['dsn'])
-        print('Starting query for %s: %r' % (trace_name, section['query']))
-        result = db.execute(section['query'])
+        print('Starting query for %s: %r' % (trace_name, section['query']), file=sys.stderr)
+        db.execute(section['query'])
+        for row in db:
+            for rowkey, rowvalue in row.items():
+                if rowkey == 'count':
+                    trace['y'].append(rowvalue)
+                else:
+                    if isinstance(rowvalue, datetime.datetime):
+                        rowvalue = rowvalue.isoformat()
+                    trace['x'].append(rowvalue)
         traces[trace_name] = trace
-        if result:
-            print(result)
-        else:
-            trace['x'] = trace['y'] = []
 
-    print('Rendering...')
+    print('Rendering...', file=sys.stderr)
     with open('template.html') as template_handle:
         TEMPLATE = template_handle.read()
     print(TEMPLATE.format(width=trace['width'], height=trace['height'],
-                          traces=TRACE.format(x=trace['x'], y=trace['y'], section='foo'),
+                          traces=TRACE.format(x=trace['x'], y=trace['y'], section=trace_name),
                           traces_list=trace_name, title=trace['title']))
 
 
