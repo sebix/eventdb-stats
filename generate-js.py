@@ -80,8 +80,8 @@ def main():
                         help='configuration file to use',
                         default=None)
     parser.add_argument('-o', '--output',
-                        help='output file, default: stdout',
-                        default=None)
+                        help='output file, default: - for stdout',
+                        default='-')
     parser.add_argument('--dsn',
                         help='DSN connection string',
                         default=None)
@@ -142,7 +142,7 @@ def main():
     plot = TEMPLATE.format(graphs='\n'.join(graphs),
                            plots='\n'.join(plots),
                            )
-    if not args.output:
+    if args.output == '-':
         print(plot)
     else:
         with open(args.output, 'w') as output_handle:
