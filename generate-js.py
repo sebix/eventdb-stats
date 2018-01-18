@@ -76,25 +76,40 @@ def main():
     )
     parser.add_argument('-v', '--version',
                         action='version', version=VERSION)
-    parser.add_argument('config', help='configuration file to use')
+    parser.add_argument('-c', '--config',
+                        help='configuration file to use',
+                        default=None)
     parser.add_argument('-o', '--output',
                         help='output file, default: stdout',
                         default=None)
     parser.add_argument('--dsn',
                         help='DSN connection string',
                         default=None)
+    parser.add_argument('-q', '--query',
+                        help='SQL Query',
+                        default=None)
 
     args = parser.parse_args()
-    config = configparser.ConfigParser()
-    config.read(args.config)
+    if args.config:
+        config = configparser.ConfigParser()
+        config.read(args.config)
+    else:
+        if not args.dsn and args.query:
+            sys.exit('For cli mode you must give both DSN and query string.')
+        config = {
+            'manual': {
+                'dsn': args.dsn,
+                'query': args.query,
+                }
+            }
     graphs = []
     plots = []
     for section_name, section in config.items():
         if section_name == 'DEFAULT':
             continue
         title = section.get('title', '')
-        width = section.get('width', '')
-        height = section.get('height', '')
+        width = section.get('width', 1000)
+        height = section.get('height', 500)
         dsn = args.dsn if args.dsn else section['dsn']
         db = CONNECTIONS[dsn]
         print('Starting query for %s: %r' % (section_name, section['query']), file=sys.stderr)
