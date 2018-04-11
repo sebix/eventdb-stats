@@ -118,7 +118,7 @@ def main():
         for row in db:
             row_x = row[0]
             row_y = row[-1]
-            row_names = tuple(row[1:-1])
+            row_names = tuple(str(x) for x in row[1:-1])  # For None/NULL values
             if isinstance(row_x, datetime.datetime):
                 row_x = row_x.isoformat()
             data[row_names][0].append(row_x)
