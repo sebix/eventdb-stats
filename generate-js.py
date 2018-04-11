@@ -9,6 +9,7 @@ import argparse
 import collections
 import configparser
 import datetime
+#import pprint
 import sys
 
 import psycopg2
@@ -104,13 +105,18 @@ def main():
             }
     graphs = []
     plots = []
+    successes = 0
     for section_name, section in config.items():
         if section_name == 'DEFAULT':
+            successes += 1
             continue
         title = section.get('title', '')
         width = section.get('width', 1000)
         height = section.get('height', 500)
         dsn = args.dsn if args.dsn else section['dsn']
+        if not dsn:
+            print('Missing DSN!', file=sys.stderr)
+            continue
         db = CONNECTIONS[dsn]
         print('Starting query for %s: %r' % (section_name, section['query']), file=sys.stderr)
         db.execute(section['query'])
@@ -124,6 +130,7 @@ def main():
             data[row_names][0].append(row_x)
             data[row_names][1].append(row_y)
         traces = []
+#        pprint.pprint(data)
         for trace_names, trace_data in data.items():
             traces.append(TRACE.format(section_name=section_name, trace_name='_'.join(trace_names),
                                        trace_title=' '.join(trace_names),
@@ -137,17 +144,23 @@ def main():
                                  traces='\n'.join(traces),
                                  barmode=section.get('barmode', 'group')
                                  ))
+        successes += 1
 
-    print('Rendering...', file=sys.stderr)
-    plot = TEMPLATE.format(graphs='\n'.join(graphs),
-                           plots='\n'.join(plots),
-                           )
-    if args.output == '-':
-        print(plot)
+    if successes:
+        print('Rendering...', file=sys.stderr)
+        plot = TEMPLATE.format(graphs='\n'.join(graphs),
+                               plots='\n'.join(plots),
+                               )
+        if args.output == '-':
+            print(plot)
+        else:
+            with open(args.output, 'w') as output_handle:
+                output_handle.write(plot)
+    elif config:  # something is configured and nothing could be completed
+        print('Errors happend, could not render.', file=sys.stdout)
+        return 1
     else:
-        with open(args.output, 'w') as output_handle:
-            output_handle.write(plot)
-
+        print('Nothing to do.')
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
