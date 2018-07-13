@@ -151,6 +151,12 @@ def main():
     graphs = []
     plots = []
     successes = 0
+
+    print(dir(config['__query_variables']))
+    variables = dict(config['__query_variables'].items())
+    print(variables)
+    del config['__query_variables']
+
     for section_name, section in config.items():
         if section_name == 'DEFAULT':
             successes += 1
@@ -163,8 +169,9 @@ def main():
             print('Missing DSN!', file=sys.stderr)
             continue
         db = CONNECTIONS[dsn]
-        print('Starting query for %s: %r' % (section_name, section['query']), file=sys.stderr)
-        db.execute(section['query'])
+        query = section['query'].format(**variables)
+        print('Starting query for %s: %r' % (section_name, query), file=sys.stderr)
+        db.execute(query)
         data = collections.defaultdict(lambda: ([], []))
         for row in db:
             row_x = row[0]
@@ -238,4 +245,7 @@ def main():
         print('Nothing to do.')
 
 if __name__ == '__main__':
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        pass
