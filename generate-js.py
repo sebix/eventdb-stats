@@ -9,11 +9,18 @@ import argparse
 import collections
 import configparser
 import datetime
+import os.path
 #import pprint
+import re
 import sys
 
 import psycopg2
 
+
+try:
+    import plotly
+except ImportError:
+    plotly = None
 
 VERSION = '0.1'
 
@@ -25,8 +32,12 @@ var trace_{section_name}_{trace_name} = {{
   type: 'bar',
 }};
 """
-GRAPH = """<div id="{section_name}" style="width:{width};height:{height};"></div>"""
-PLOT = """
+GRAPH_JS = """<div id="{section_name}" style="width:{width};height:{height};"></div>"""
+GRAPH_PNG = """
+<h2>{title}</h2>
+<img src="{path}/{section_name}.png" width="{width}px" height="{height}px"></img>
+"""
+PLOT_JS = """
 {traces}
 
 var data_{section_name} = [{traces_list}];
@@ -46,7 +57,7 @@ var layout_{section_name} = {{
 
 Plotly.newPlot('{section_name}', data_{section_name}, layout_{section_name});
 """
-TEMPLATE = """
+TEMPLATE_JS = """
 <html>
 <head>
 <script src="./plotly-latest.min.js"></script>
@@ -59,6 +70,15 @@ TEMPLATE = """
 </body>
 </html>
 """
+TEMPLATE_PNG = """
+<html>
+<head>
+</head>
+<body>
+{graphs}
+</body>
+</html>
+"""
 
 
 class ConnectionCache(object):
@@ -67,6 +87,12 @@ class ConnectionCache(object):
             self.__dict__[key] = psycopg2.connect(dsn=key).cursor()
         return self.__dict__[key]
 CONNECTIONS = ConnectionCache()
+
+
+def to_js_name(value):
+    if isinstance(value, (list, tuple)):
+        value = '_'.join(value)
+    return re.sub('[^a-zA-Z0-9]+', '_', value)
 
 
 def main():
@@ -89,8 +115,27 @@ def main():
     parser.add_argument('-q', '--query',
                         help='SQL Query',
                         default=None)
+    parser.add_argument('-J', '--js',
+                        help='Use Javascript',
+                        default=True,
+                        action='store_const',
+                        const=True,
+                        )
+    parser.add_argument('-P', '--png',
+                        help='Use PNG',
+                        default=False,
+                        action='store_const',
+                        const=True,
+                        )
 
     args = parser.parse_args()
+    if args.png:
+        args.js = False
+        if plotly is None:
+            print('Needed plotly library is not installed.', file=sys.stderr)
+            return 2
+    if args.js:
+        args.png = False
     if args.config:
         config = configparser.ConfigParser()
         config.read(args.config)
@@ -125,30 +170,60 @@ def main():
             row_x = row[0]
             row_y = row[-1]
             row_names = tuple(str(x) for x in row[1:-1])  # For None/NULL values
-            if isinstance(row_x, datetime.datetime):
+            if isinstance(row_x, (datetime.datetime, datetime.date, datetime.time)):
                 row_x = row_x.isoformat()
             data[row_names][0].append(row_x)
             data[row_names][1].append(row_y)
         traces = []
 #        pprint.pprint(data)
         for trace_names, trace_data in data.items():
-            traces.append(TRACE.format(section_name=section_name, trace_name='_'.join(trace_names),
-                                       trace_title=' '.join(trace_names),
-                                       x=trace_data[0], y=trace_data[1]))
+            if args.js:
+                traces.append(TRACE.format(section_name=section_name, trace_name=to_js_name(trace_names),
+                                           trace_title=' '.join(trace_names),
+                                           x=trace_data[0], y=trace_data[1]))
+            else:
+                traces.append(plotly.graph_objs.Scatter(x = trace_data[0],
+                                                        y = trace_data[1],
+                                                        mode = 'lines',
+                                                        name = ' '.join(trace_names),
+                                                        ))
 
-        graphs.append(GRAPH.format(section_name=section_name, width=width, height=height))
-        plots.append(PLOT.format(section_name=section_name,
-                                 width=width, height=height,
-                                 title=title,
-                                 traces_list=', '.join(['trace_%s_%s' % (section_name, '_'.join(trace_name)) for trace_name in data.keys()]),
-                                 traces='\n'.join(traces),
-                                 barmode=section.get('barmode', 'group')
-                                 ))
+        if args.js:
+            graphs.append(GRAPH_JS.format(section_name=section_name, width=width, height=height))
+            plots.append(PLOT_JS.format(section_name=section_name,
+                                        width=width, height=height,
+                                        title=title,
+                                        traces_list=', '.join(['trace_%s_%s' % (section_name, to_js_name(trace_name)) for trace_name in data.keys()]),
+                                        traces='\n'.join(traces),
+                                        barmode=section.get('barmode', 'group')
+                                        ))
+        else:
+            if args.output == '-':
+                path = ''
+            else:
+                path = os.path.splitext(args.output)[0]
+            if not os.path.exists(path) and not os.path.isdir(path):
+                os.mkdir(path)
+            elif not os.path.isdir(path):
+                print('Output path %r already exists and is not a directory!', file=sys.stderr)
+                break
+            filename = '{path}/{section_name}.svg'.format(path=path, section_name=section_name)
+            print(filename)
+            plotly.offline.plot(traces, filename=filename, image_width=width, image_height=height,
+                                image='svg')
+            graphs.append(GRAPH_PNG.format(title=title,
+                                           section_name=section_name,
+                                           path=path,
+                                           width=width, height=height))
         successes += 1
 
     if successes:
         print('Rendering...', file=sys.stderr)
-        plot = TEMPLATE.format(graphs='\n'.join(graphs),
+        if args.js:
+            template = TEMPLATE_JS
+        else:
+            template = TEMPLATE_PNG
+        plot = template.format(graphs='\n'.join(graphs),
                                plots='\n'.join(plots),
                                )
         if args.output == '-':
