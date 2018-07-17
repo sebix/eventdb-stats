@@ -152,10 +152,11 @@ def main():
     plots = []
     successes = 0
 
-    print(dir(config['__query_variables']))
-    variables = dict(config['__query_variables'].items())
-    print(variables)
-    del config['__query_variables']
+    if '__query_variables' in config:
+        variables = dict(config['__query_variables'].items())
+        config.pop('__query_variables', None)
+    else:
+        variables = {}
 
     for section_name, section in config.items():
         if section_name == 'DEFAULT':
