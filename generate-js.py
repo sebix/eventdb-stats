@@ -99,9 +99,10 @@ def main():
     parser = argparse.ArgumentParser(
         prog='eventdb stats',
         description="Generates a HTML file with JS that displays stats on the eventdb.",
+        epilog="Use either a configuration file or give the DSN and Query as parameters.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument('-v', '--version',
+    parser.add_argument('-V', '--version',
                         action='version', version=VERSION)
     parser.add_argument('-c', '--config',
                         help='configuration file to use',
@@ -112,7 +113,7 @@ def main():
     parser.add_argument('--dsn',
                         help='DSN connection string',
                         default=None)
-    parser.add_argument('-q', '--query',
+    parser.add_argument('-Q', '--query',
                         help='SQL Query',
                         default=None)
     parser.add_argument('-J', '--js',
