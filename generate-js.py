@@ -124,15 +124,15 @@ def main():
                         default=None)
     parser.add_argument('-J', '--js',
                         help='Use Javascript',
-                        default=True,
-                        action='store_const',
-                        const=True,
+                        action='store_true',
                         )
     parser.add_argument('-P', '--png',
                         help='Use PNG',
-                        default=False,
-                        action='store_const',
-                        const=True,
+                        action='store_true',
+                        )
+    parser.add_argument('-q', '--quiet',
+                        help='Quiet mode, do not print status information to stderr.',
+                        action='store_true',
                         )
 
     args = parser.parse_args()
@@ -178,7 +178,8 @@ def main():
             continue
         db = CONNECTIONS[dsn]
         query = section['query'].format(**variables)
-        print('Starting query for %s: %r' % (section_name, query), file=sys.stderr)
+        if not args.quiet:
+            print('Starting query for %s: %r' % (section_name, query), file=sys.stderr)
         db.execute(query)
         data = collections.defaultdict(lambda: ([], []))
         for row in db:
@@ -236,7 +237,8 @@ def main():
         successes += 1
 
     if successes:
-        print('Rendering...', file=sys.stderr)
+        if not args.quiet:
+            print('Rendering...', file=sys.stderr)
         if args.js:
             template = TEMPLATE_JS
         else:
