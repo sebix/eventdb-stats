@@ -29,7 +29,7 @@ var trace_{section_name}_{trace_name} = {{
   x: {x},
   y: {y},
   name: '{trace_title}',
-  type: 'bar',
+  type: '{trace_type}',
 }};
 """
 GRAPH_JS = """<div id="{section_name}" style="width:{width};height:{height};"></div>"""
@@ -43,8 +43,8 @@ PLOT_JS = """
 var data_{section_name} = [{traces_list}];
 
 var layout_{section_name} = {{
-    barmode: '{barmode}',
-    legend: {{
+  barmode: '{barmode}',
+  legend: {{
     x: 0,
     y: 1.0,
     bgcolor: 'rgba(255, 255, 255, 0)',
@@ -53,6 +53,12 @@ var layout_{section_name} = {{
   title: '{title}',
   width: {width},
   height: {height},
+  xaxis: {{
+    type: '{xaxis_type}',
+  }},
+  yaxis: {{
+    type: '{yaxis_type}',
+  }}
   }};
 
 Plotly.newPlot('{section_name}', data_{section_name}, layout_{section_name});
@@ -189,7 +195,8 @@ def main():
             if args.js:
                 traces.append(TRACE.format(section_name=section_name, trace_name=to_js_name(trace_names),
                                            trace_title=' '.join(trace_names),
-                                           x=trace_data[0], y=trace_data[1]))
+                                           x=trace_data[0], y=trace_data[1],
+                                           trace_type=section.get('trace_type', 'line')))
             else:
                 traces.append(plotly.graph_objs.Scatter(x = trace_data[0],
                                                         y = trace_data[1],
@@ -204,7 +211,9 @@ def main():
                                         title=title,
                                         traces_list=', '.join(['trace_%s_%s' % (section_name, to_js_name(trace_name)) for trace_name in data.keys()]),
                                         traces='\n'.join(traces),
-                                        barmode=section.get('barmode', 'group')
+                                        barmode=section.get('barmode', 'group'),
+                                        xaxis_type=section.get('xaxis_type', 'linear'),
+                                        yaxis_type=section.get('yaxis_type', 'linear'),
                                         ))
         else:
             if args.output == '-':
